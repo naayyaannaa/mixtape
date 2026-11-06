@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Jersey_10 } from "next/font/google";
 import "./globals.css";
 import PlaybackProvider from "./player/PlaybackProvider";
@@ -25,7 +26,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {/* Owns the Spotify player, so music keeps playing across pages. */}
         <PlaybackProvider>
           {children}
-          <MiniPlayer />
+          {/* Reads the current URL, which dynamic routes (/player/[id]…) only know
+              at request time: Suspense lets the rest of each page prerender. */}
+          <Suspense fallback={null}>
+            <MiniPlayer />
+          </Suspense>
         </PlaybackProvider>
       </body>
     </html>

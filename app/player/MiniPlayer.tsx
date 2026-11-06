@@ -20,6 +20,7 @@ function clamp(p: Pos, el: HTMLElement): Pos {
 }
 
 function savedPos(): Pos | null {
+  if (typeof window === "undefined") return null; // server render (Node has its own localStorage)
   try {
     return JSON.parse(localStorage.getItem(POS_KEY) ?? "null");
   } catch {
