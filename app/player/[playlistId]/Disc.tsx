@@ -19,7 +19,7 @@ export default function Disc({
 }) {
   return (
     <div
-      className={`relative aspect-square shrink-0 animate-[spin_12s_linear_infinite] drop-shadow-[0_10px_20px_rgba(0,0,0,0.35)] ${className}`}
+      className={`relative aspect-square shrink-0 animate-[spin_20s_linear_infinite] drop-shadow-[0_10px_20px_rgba(0,0,0,0.35)] ${className}`}
       style={{ animationPlayState: spinning ? "running" : "paused" }}
     >
       {cover && (

@@ -1,8 +1,10 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { unstable_rethrow } from "next/navigation";
 import CutoutTitle from "../../components/CutoutTitle";
 import PixelIcon from "../../components/PixelIcon";
-import { loadPlaylistTracks } from "@/lib/session";
+import { loadPlaylistTracks, withSpotify } from "@/lib/session";
+import { spotifyGet } from "@/lib/spotify";
 
 // Small alternating tilts so each strip looks hand-glued.
 const TILTS = [-0.6, 0.4, -0.3, 0.7, -0.5, 0.2, 0.5, -0.7];
@@ -40,6 +42,22 @@ async function Tracks({ params }: { params: PageProps<"/tracklist/[playlistId]">
   );
 }
 
+/** The playlist's name (metadata Spotify shares for any playlist). */
+async function PlaylistName({ params }: { params: PageProps<"/tracklist/[playlistId]">["params"] }) {
+  const { playlistId } = await params;
+  let name: string | null = null;
+  try {
+    ({ name } = await withSpotify((token) =>
+      spotifyGet<{ name: string }>(`/playlists/${encodeURIComponent(playlistId)}?fields=name`, token),
+    ));
+  } catch (e) {
+    unstable_rethrow(e); // let Next's redirect to /login (expired session) through
+    console.error(`[tracklist] name of ${playlistId}:`, e);
+  }
+  if (!name) return null; // the track list below still shows
+  return <p className="mt-10 text-center text-3xl text-white sm:mt-14 sm:text-4xl">{name}</p>;
+}
+
 export default function TracklistPage(props: PageProps<"/tracklist/[playlistId]">) {
   return (
     <div className="flex min-h-screen flex-1 flex-col items-center gap-8 bg-[url('/cover.png')] bg-cover bg-fixed bg-center bg-no-repeat px-4 pb-16">
@@ -52,6 +70,9 @@ export default function TracklistPage(props: PageProps<"/tracklist/[playlistId]"
           <PixelIcon name="home" size={30} />
         </Link>
         <CutoutTitle text="Track List" />
+        <Suspense>
+          <PlaylistName params={props.params} />
+        </Suspense>
       </header>
       <Suspense fallback={<p className="text-2xl text-white">Unpacking the tracks…</p>}>
         <Tracks params={props.params} />

@@ -15,20 +15,22 @@ async function PlayerLoader({ params, searchParams }: PageProps<"/player/[playli
   }
   const tracks = result.ok ? result.tracks : null;
 
-  // ?track= is the 1-based track number shown on the tracklist.
-  const wanted = Number(typeof track === "string" ? track : 1) - 1;
-  const start = tracks ? (tracks.find((t) => t.position === wanted) ?? tracks[0]) : null;
+  // ?track= is the 1-based track number shown on the tracklist. Without it, the
+  // player keeps whatever is already playing from this playlist.
+  const wanted = typeof track === "string" ? Number(track) - 1 : null;
+  const start =
+    tracks && wanted !== null ? (tracks.find((t) => t.position === wanted) ?? tracks[0]) : null;
 
-  if (tracks && !start) {
+  if (tracks && tracks.length === 0) {
     return <p className="m-auto text-3xl text-white">This mixtape is empty.</p>;
   }
 
   return (
     <Player
-      key={`${playlistId}-${start?.position ?? 0}`}
+      key={`${playlistId}-${start?.position ?? "current"}`}
       playlistId={playlistId}
       tracks={tracks}
-      startPosition={start?.position ?? 0}
+      requestedTrack={start?.position ?? null}
     />
   );
 }

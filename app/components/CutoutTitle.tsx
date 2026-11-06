@@ -10,6 +10,10 @@ const LETTER_WIDTHS: Record<string, number> = {
   V: 292, W: 501, X: 391, Y: 346, Z: 370,
 };
 const LETTER_HEIGHT = 400;
+// No image for the apostrophe: it's drawn as a small paper scrap (see below),
+// this wide in letter-heights.
+const APOSTROPHE_UNITS = 0.32;
+const isApostrophe = (ch: string) => ch === "'";
 
 // Small, deterministic tilts/offsets so it reads like a ransom-note cutout.
 const TILTS = [-6, 4, -3, 7, -5, 2, -8, 5, -2, 6, -4, 3];
@@ -20,14 +24,21 @@ const LETTER_GAP = 0.06;
 const WORD_GAP = 0.7;
 
 export default function CutoutTitle({ text }: { text: string }) {
-  const words = text.toUpperCase().split(/\s+/).filter(Boolean);
+  const words = text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // é → e: only plain letters have cutouts
+    .replace(/[\u2018\u2019]/g, "'")
+    .toUpperCase()
+    .split(/\s+/)
+    .filter(Boolean);
   let i = 0;
 
   // Size letters so the whole title fits on one line: total width is the sum of
   // each letter's aspect ratio plus the gaps, all measured in letter-heights.
   const letters = words.join("");
   const letterUnits = [...letters].reduce(
-    (sum, ch) => sum + (LETTER_WIDTHS[ch] ?? 0) / LETTER_HEIGHT,
+    (sum, ch) =>
+      sum + (isApostrophe(ch) ? APOSTROPHE_UNITS : (LETTER_WIDTHS[ch] ?? 0) / LETTER_HEIGHT),
     0,
   );
   const letterGapCount = words.reduce((n, w) => n + Math.max(w.length - 1, 0), 0);
@@ -55,6 +66,23 @@ export default function CutoutTitle({ text }: { text: string }) {
           style={{ gap: `calc(var(--h) * ${LETTER_GAP})` }}
         >
           {[...word].map((ch, c) => {
+            if (isApostrophe(ch)) {
+              const n = i++;
+              return (
+                <span
+                  key={c}
+                  className="flex h-[calc(var(--h)*0.5)] items-start justify-center self-start bg-[#f3efe4] font-black leading-none text-black shadow-[0_4px_6px_rgba(0,0,0,0.6)]"
+                  style={{
+                    width: `calc(var(--h) * ${APOSTROPHE_UNITS})`,
+                    fontSize: "calc(var(--h) * 0.75)",
+                    rotate: `${TILTS[n % TILTS.length]}deg`,
+                    clipPath: "polygon(6% 0, 100% 5%, 92% 100%, 0 94%)",
+                  }}
+                >
+                  &rsquo;
+                </span>
+              );
+            }
             const width = LETTER_WIDTHS[ch];
             if (!width) return null;
             const n = i++;

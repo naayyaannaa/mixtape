@@ -32,7 +32,7 @@ const noopSubscribe = () => () => {};
  * Opens automatically when the user switches tab/app while music is playing
  * (Chrome's automatic PiP for media sites), or manually via `open()`.
  */
-export function usePictureInPicture({ width = 300, height = 380 } = {}) {
+export function usePictureInPicture({ width = 320, height = 320 } = {}) {
   const [pipWindow, setPipWindow] = useState<Window | null>(null);
   // false on the server, real answer in the browser (no hydration mismatch).
   const supported = useSyncExternalStore(

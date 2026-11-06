@@ -16,6 +16,9 @@ declare namespace Spotify {
     paused: boolean;
     position: number;
     duration: number;
+    shuffle: boolean;
+    /** 0 = off, 1 = repeat context (playlist), 2 = repeat track. */
+    repeat_mode: 0 | 1 | 2;
     track_window: { current_track: Track; previous_tracks: Track[]; next_tracks: Track[] };
   }
   interface Error {

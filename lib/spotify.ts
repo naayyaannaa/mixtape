@@ -38,6 +38,9 @@ export function authorizeUrl(state: string) {
     scope: SCOPES,
     redirect_uri: env("SPOTIFY_REDIRECT_URI"),
     state,
+    // Always show Spotify's login/consent screen (with its "Not you?" link) instead of
+    // silently reusing whichever account is signed in to spotify.com, e.g. after logout.
+    show_dialog: "true",
   });
   return `https://accounts.spotify.com/authorize?${params}`;
 }

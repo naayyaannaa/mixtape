@@ -32,3 +32,49 @@ body {
   background-blend-mode: overlay;
 }
 
+
+/* Pixel-style range slider: square track (background set inline) and a square thumb. */
+.pixel-range {
+  appearance: none;
+  height: 10px;
+  width: 100%;
+  cursor: pointer;
+  outline-offset: 4px;
+}
+.pixel-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 22px;
+  background: #fff;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.6);
+}
+.pixel-range::-moz-range-thumb {
+  width: 14px;
+  height: 22px;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.6);
+}
+
+/* Old-Windows bevels (mini player). Raised: light top-left, dark bottom-right. */
+.win-raised {
+  background: #c0c0c0;
+  box-shadow:
+    inset -1px -1px #0a0a0a,
+    inset 1px 1px #ffffff,
+    inset -2px -2px #808080,
+    inset 2px 2px #dfdfdf;
+}
+/* Pressed button / sunken field: the same edges flipped. */
+.win-raised:is(button):active,
+.win-sunken {
+  box-shadow:
+    inset -1px -1px #ffffff,
+    inset 1px 1px #0a0a0a,
+    inset -2px -2px #dfdfdf,
+    inset 2px 2px #808080;
+}
+.win-titlebar {
+  background: linear-gradient(90deg, #000080, #1084d0);
+}
