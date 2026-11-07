@@ -66,30 +66,6 @@ export async function getPlaylistTracks(
   return { ok: true, tracks: toTracks(items) };
 }
 
-/**
- * The user's Liked Songs (newest first, as in Spotify), in the same shape as a
- * playlist's tracks. Needs the user-library-read scope (403 without it).
- */
-export async function getLikedTracks(accessToken: string): Promise<TracksResult> {
-  "use cache";
-
-  let url: string | null = "https://api.spotify.com/v1/me/tracks?limit=50";
-  const items: ApiPlaylistItem[] = [];
-  while (url) {
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
-    if (!res.ok) {
-      cacheLife("seconds");
-      const wait = res.headers.get("retry-after");
-      return { ok: false, status: res.status, message: (await res.text()) + (wait ? ` [retry after ${wait}s]` : "") };
-    }
-    const page: { items: ApiPlaylistItem[]; next: string | null } = await res.json();
-    items.push(...page.items);
-    url = page.next;
-  }
-  cacheLife("minutes");
-  return { ok: true, tracks: toTracks(items) };
-}
-
 /** A playlist's name (null if Spotify won't say), cached like its tracks. */
 export async function getPlaylistName(playlistId: string, accessToken: string): Promise<string | null> {
   "use cache";

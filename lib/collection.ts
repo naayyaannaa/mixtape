@@ -1,6 +1,5 @@
 import { cacheLife } from "next/cache";
-import { LIKED_ID, LIKED_NAME } from "./liked";
-import { SpotifyError, spotifyGet, type Paging, type SimplifiedPlaylist, type SpotifyImage } from "./spotify";
+import { SpotifyError, spotifyGet, type Paging, type SimplifiedPlaylist } from "./spotify";
 
 export type Me = { id: string; display_name: string | null };
 
@@ -20,32 +19,7 @@ async function getAllPlaylists(token: string) {
 }
 
 /**
- * Liked Songs as a playlist-shaped entry (cover: the newest liked song's album
- * art), or null if there are none, or the login predates the library permission.
- */
-async function getLiked(token: string): Promise<Omit<SimplifiedPlaylist, "owner"> | null> {
-  try {
-    const page = await spotifyGet<Paging<{ track: { album?: { images?: SpotifyImage[] } } | null }>>(
-      "/me/tracks?limit=1",
-      token,
-    );
-    if (page.total === 0) return null;
-    return {
-      id: LIKED_ID,
-      name: LIKED_NAME,
-      collaborative: false,
-      images: page.items[0]?.track?.album?.images ?? null,
-    };
-  } catch (e) {
-    // 403 = logged in before Liked Songs needed the library permission:
-    // the rest of the collection still shows; logging in again adds it.
-    console.error("[collection] liked songs:", e instanceof SpotifyError ? e.message : e);
-    return null;
-  }
-}
-
-/**
- * The signed-in user and their playlists (Liked Songs first), cached per token
+ * The signed-in user and their playlists, cached per token
  * for a few minutes: going back to the collection doesn't ask Spotify again,
  * which keeps the app inside Spotify's request quota.
  *
@@ -55,15 +29,9 @@ async function getLiked(token: string): Promise<Omit<SimplifiedPlaylist, "owner"
 export async function getCollection(token: string): Promise<CollectionResult> {
   "use cache";
   try {
-    const [me, all, liked] = await Promise.all([
-      spotifyGet<Me>("/me", token),
-      getAllPlaylists(token),
-      getLiked(token),
-    ]);
+    const [me, playlists] = await Promise.all([spotifyGet<Me>("/me", token), getAllPlaylists(token)]);
     cacheLife("minutes");
-    // Liked Songs is the user's own library, so its track list can be shown.
-    const likedEntry = liked && { ...liked, owner: { id: me.id, display_name: me.display_name } };
-    return { ok: true, me, playlists: likedEntry ? [likedEntry, ...all] : all };
+    return { ok: true, me, playlists };
   } catch (e) {
     cacheLife("seconds"); // a blip or a quota limit: try again soon
     if (e instanceof SpotifyError) return { ok: false, status: e.status, message: e.message };

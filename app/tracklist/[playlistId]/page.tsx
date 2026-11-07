@@ -7,7 +7,6 @@ import Loading from "../../components/Loading";
 import TrackLink from "./TrackLink";
 import { loadPlaylistTracks, requireAccessToken } from "@/lib/session";
 import { getPlaylistName } from "@/lib/playlist";
-import { LIKED_ID, LIKED_NAME } from "@/lib/liked";
 
 // Small alternating tilts so each strip looks hand-glued.
 const TILTS = [-0.6, 0.4, -0.3, 0.7, -0.5, 0.2, 0.5, -0.7];
@@ -55,7 +54,6 @@ async function Tracks({ params }: { params: PageProps<"/tracklist/[playlistId]">
 /** The playlist's name (metadata Spotify shares for any playlist). */
 async function PlaylistName({ params }: { params: PageProps<"/tracklist/[playlistId]">["params"] }) {
   const { playlistId } = await params;
-  if (playlistId === LIKED_ID) return <p className="mt-10 text-center text-3xl text-white sm:mt-14 sm:text-4xl">{LIKED_NAME}</p>;
   const name = await getPlaylistName(playlistId, await requireAccessToken());
   if (!name) return null; // the track list below still shows
   return <p className="mt-10 text-center text-3xl text-white sm:mt-14 sm:text-4xl">{name}</p>;
