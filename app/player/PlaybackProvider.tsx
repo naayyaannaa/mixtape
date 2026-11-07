@@ -8,6 +8,9 @@ const READY_TIMEOUT_MS = 15_000;
 /** How long a tracklist click's head start counts as "this song is already starting". */
 const PRIMED_MS = 10_000;
 
+/** Shown when the account can't stream (Spotify's Web Playback needs Premium). */
+export const PREMIUM_MESSAGE = "Spotify Premium is needed to play music here.";
+
 // Shows up in the browser console (and in `next dev`'s log file).
 export const log = (...args: unknown[]) => console.info("[mixtape player]", ...args);
 
@@ -194,7 +197,7 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
           log("shuffle", shuffleRef.current, "→", r?.status),
         );
       } else if (res.status === 403) {
-        setMessage("Spotify Premium is needed to play music here.");
+        setMessage(PREMIUM_MESSAGE);
       } else {
         log("play failed:", await res.text());
         if (res.status === 404) {
@@ -276,7 +279,7 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
         setTime({ position: state.position, duration: state.duration });
       });
       player.addListener("account_error", (e) =>
-        fail("account_error", e, "Spotify Premium is needed to play music here."),
+        fail("account_error", e, PREMIUM_MESSAGE),
       );
       player.addListener("authentication_error", (e) =>
         fail("authentication_error", e, "Spotify login expired. Log in again."),

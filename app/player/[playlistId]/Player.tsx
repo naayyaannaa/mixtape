@@ -7,7 +7,7 @@ import PixelIcon from "../../components/PixelIcon";
 import { toggleFullscreen } from "../../components/FullscreenKey";
 import Controls from "../Controls";
 import RetroWindow from "../RetroWindow";
-import { usePlayback, type Start } from "../PlaybackProvider";
+import { PREMIUM_MESSAGE, usePlayback, type Start } from "../PlaybackProvider";
 import Disc from "./Disc";
 import MeshBackground, { accentHue, shiftPalette, useCoverPalette } from "./MeshBackground";
 import VisualizerPanel from "./VisualizerPanel";
@@ -157,7 +157,7 @@ export default function Player({
       </header>
 
       <main className="flex flex-1 flex-col items-center justify-center gap-6">
-        <Disc cover={now.cover} spinning={!paused} />
+        <Disc cover={now.cover} spinning={!paused} scribble={message === PREMIUM_MESSAGE ? "sorry :(" : undefined} />
 
         <div className="flex flex-col items-center text-center">
           <h1 className="text-4xl leading-tight sm:text-5xl">{now.name}</h1>

@@ -1,4 +1,7 @@
 import Image from "next/image";
+import { Permanent_Marker } from "next/font/google";
+
+const marker = Permanent_Marker({ weight: "400", subsets: ["latin"] });
 
 // cd.svg (vector, so it stays sharp at any size): the hub (black ring and
 // inward) is the inner 29% of the radius, the hole the inner 13.5%. The song
@@ -12,10 +15,13 @@ const discMask = `radial-gradient(circle closest-side, #000 ${HUB}, transparent 
 export default function Disc({
   cover,
   spinning,
+  scribble,
   className = "w-[min(72vw,26rem)]",
 }: {
   cover?: string;
   spinning: boolean;
+  /** Handwritten on the disc in black marker, like a label on a burned CD. */
+  scribble?: string;
   className?: string;
 }) {
   return (
@@ -44,6 +50,18 @@ export default function Disc({
         priority
         style={cover ? { maskImage: discMask, WebkitMaskImage: discMask } : undefined}
       />
+      {scribble && (
+        // Inside the spinning element, so it turns with the disc. Sized to the
+        // disc (container query units) and placed between the hub and the rim.
+        <div className="pointer-events-none absolute inset-0 @container">
+          <p
+            className={`${marker.className} absolute inset-x-0 top-[66%] -rotate-6 text-center leading-none text-black`}
+            style={{ fontSize: "11cqw", opacity: 0.88 }}
+          >
+            {scribble}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

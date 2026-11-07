@@ -47,7 +47,7 @@ async function PlayerLoader({ params, searchParams }: PageProps<"/player/[playli
 
 export default function PlayerPage(props: PageProps<"/player/[playlistId]">) {
   return (
-    <div className="relative flex min-h-screen flex-1 flex-col bg-grey-noise">
+    <div className="relative flex min-h-screen flex-1 flex-col bg-white">
       <Suspense fallback={<Loading />}>
         <PlayerLoader {...props} />
       </Suspense>

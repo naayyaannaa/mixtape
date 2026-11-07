@@ -14,15 +14,15 @@ export type Palette = {
   baseIndex: number;
 };
 
-// Shown before a cover loads (and if one can't be read): soft greys.
+// Shown before a cover loads (and if one can't be read): plain white.
 const DEFAULT: Palette = {
   colors: [
-    [96, 96, 96],
-    [128, 128, 128],
-    [156, 156, 156],
-    [184, 184, 184],
+    [255, 255, 255],
+    [255, 255, 255],
+    [255, 255, 255],
+    [255, 255, 255],
   ],
-  text: "#ffffff",
+  text: "#161616",
   baseHue: 0,
   baseIndex: 0,
 };
