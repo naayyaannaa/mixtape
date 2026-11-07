@@ -41,7 +41,7 @@ export default function StarField({
             points={STAR}
             fill={outline ? "none" : color}
             stroke={outline ? color : undefined}
-            strokeWidth={outline ? 1.5 : undefined}
+            strokeWidth={outline ? 2.5 : undefined}
             vectorEffect={outline ? "non-scaling-stroke" : undefined}
           />
         </svg>

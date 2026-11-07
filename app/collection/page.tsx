@@ -106,7 +106,9 @@ function CollectionContent() {
         <Title />
       </header>
       <Playlists />
-      <form action="/api/auth/logout" method="post" className="mt-10">
+      {/* mt-auto: sits at the very bottom when there's little above it (no
+          playlists, an error); pt-10 keeps the usual gap after a full grid. */}
+      <form action="/api/auth/logout" method="post" className="mt-auto pt-10">
         <button aria-label="Log out" className="transition-transform duration-200 hover:scale-110 active:scale-95">
           <CutoutTitle text="Log out" as="span" oneLine level letterHover={false} maxHeight="1.75rem" minHeight="1.5rem" />
         </button>

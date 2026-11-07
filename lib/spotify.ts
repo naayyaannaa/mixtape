@@ -88,7 +88,9 @@ export async function spotifyGet<T>(path: string, accessToken: string): Promise<
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok) {
-    throw new SpotifyError(res.status, await res.text());
+    // On 429 Spotify says how long to wait (seconds): keep it in the message.
+    const wait = res.headers.get("retry-after");
+    throw new SpotifyError(res.status, (await res.text()) + (wait ? ` [retry after ${wait}s]` : ""));
   }
   return res.json();
 }

@@ -54,7 +54,8 @@ export async function getPlaylistTracks(
       // 403/404 won't change soon (ownership); anything else may be a blip.
       if (res.status === 403 || res.status === 404) cacheLife("minutes");
       else cacheLife("seconds");
-      return { ok: false, status: res.status, message: await res.text() };
+      const wait = res.headers.get("retry-after");
+      return { ok: false, status: res.status, message: (await res.text()) + (wait ? ` [retry after ${wait}s]` : "") };
     }
     const page: { items: ApiPlaylistItem[]; next: string | null } = await res.json();
     items.push(...page.items);
@@ -78,7 +79,8 @@ export async function getLikedTracks(accessToken: string): Promise<TracksResult>
     const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
     if (!res.ok) {
       cacheLife("seconds");
-      return { ok: false, status: res.status, message: await res.text() };
+      const wait = res.headers.get("retry-after");
+      return { ok: false, status: res.status, message: (await res.text()) + (wait ? ` [retry after ${wait}s]` : "") };
     }
     const page: { items: ApiPlaylistItem[]; next: string | null } = await res.json();
     items.push(...page.items);
