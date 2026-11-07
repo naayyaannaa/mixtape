@@ -24,15 +24,21 @@ const LETTER_GAP = 0.14;
 const WORD_GAP = 0.7;
 const LINE_GAP = 0.75;
 
+/** Hop animation for the n-th letter: same loop, each a beat after the last. */
+const jumpStyle = (n: number): React.CSSProperties => ({
+  animation: "letter-jump 1.2s ease-in-out infinite",
+  animationDelay: `${n * 0.1}s`,
+});
+
 /** Width of one line of words, in letter-heights. */
-function lineUnits(words: string[]) {
+function lineUnits(words: string[], wordGap = WORD_GAP) {
   const letterUnits = [...words.join("")].reduce(
     (sum, ch) =>
       sum + (isApostrophe(ch) ? APOSTROPHE_UNITS : (LETTER_WIDTHS[ch] ?? 0) / LETTER_HEIGHT),
     0,
   );
   const letterGapCount = words.reduce((n, w) => n + Math.max(w.length - 1, 0), 0);
-  return letterUnits + letterGapCount * LETTER_GAP + (words.length - 1) * WORD_GAP;
+  return letterUnits + letterGapCount * LETTER_GAP + (words.length - 1) * wordGap;
 }
 
 /**
@@ -44,10 +50,31 @@ export default function CutoutTitle({
   text,
   maxHeight = "5.5rem",
   minHeight = "3rem",
+  fitWidth = "75vw",
+  wordGap = WORD_GAP,
+  as: Tag = "h1",
+  jump = false,
+  oneLine = false,
+  letterHover = true,
+  level = false,
 }: {
   text: string;
   maxHeight?: string;
   minHeight?: string;
+  /** How wide the longest line may get before letters stop growing. */
+  fitWidth?: string;
+  /** Space between words, as a fraction of letter height. */
+  wordGap?: number;
+  /** Element to render: a heading by default, "span" inside buttons etc. */
+  as?: "h1" | "p" | "span";
+  /** Letters hop one after another, on a loop (the loading screen). */
+  jump?: boolean;
+  /** Never wrap words onto a new line (short labels like "Log out"). */
+  oneLine?: boolean;
+  /** Each letter grows on hover; off when the whole thing moves instead. */
+  letterHover?: boolean;
+  /** All letters on the same baseline (no up/down offsets), still tilted. */
+  level?: boolean;
 }) {
   const lines = text
     .normalize("NFD")
@@ -61,16 +88,16 @@ export default function CutoutTitle({
 
   // Size letters so the longest line fits the width: each line's width is the sum
   // of its letters' aspect ratios plus the gaps, all measured in letter-heights.
-  const totalUnits = Math.max(...lines.map(lineUnits));
+  const totalUnits = Math.max(...lines.map((words) => lineUnits(words, wordGap)));
   const longestWordUnits = Math.max(...lines.flat().map((word) => lineUnits([word])));
 
   return (
-    <h1
-      aria-label={text.replace(/\s+/g, " ")}
+    <Tag
+      aria-label={Tag === "span" ? undefined : text.replace(/\s+/g, " ")}
       className="flex flex-col items-center"
       style={
         {
-          "--h": `min(${maxHeight}, max(calc(75vw / ${totalUnits.toFixed(3)}), ${minHeight}), calc(90vw / ${longestWordUnits.toFixed(3)}))`,
+          "--h": `min(${maxHeight}, max(calc(${fitWidth} / ${totalUnits.toFixed(3)}), ${minHeight}), calc(90vw / ${longestWordUnits.toFixed(3)}))`,
           gap: `calc(var(--h) * ${LINE_GAP})`,
         } as React.CSSProperties
       }
@@ -78,8 +105,8 @@ export default function CutoutTitle({
       {lines.map((words, l) => (
         <span
           key={l}
-          className="flex flex-wrap items-center justify-center"
-          style={{ columnGap: `calc(var(--h) * ${WORD_GAP})`, rowGap: `calc(var(--h) * ${LINE_GAP})` }}
+          className={`flex items-center justify-center ${oneLine ? "flex-nowrap" : "flex-wrap"}`}
+          style={{ columnGap: `calc(var(--h) * ${wordGap})`, rowGap: `calc(var(--h) * ${LINE_GAP})` }}
         >
           {words.map((word, w) => (
             <span
@@ -99,6 +126,7 @@ export default function CutoutTitle({
                         width: `calc(var(--h) * ${APOSTROPHE_UNITS})`,
                         fontSize: "calc(var(--h) * 0.75)",
                         rotate: `${TILTS[n % TILTS.length]}deg`,
+                        ...(jump && jumpStyle(n)),
                         clipPath: "polygon(6% 0, 100% 5%, 92% 100%, 0 94%)",
                       }}
                     >
@@ -117,10 +145,11 @@ export default function CutoutTitle({
                     width={width}
                     height={LETTER_HEIGHT}
                     priority
-                    className="h-(--h) w-auto drop-shadow-[0_4px_6px_rgba(0,0,0,0.6)] transition-transform duration-200 hover:scale-110"
+                    className={`h-(--h) w-auto drop-shadow-[0_4px_6px_rgba(0,0,0,0.6)] transition-transform duration-200 ${letterHover ? "hover:scale-110" : ""}`}
                     style={{
                       rotate: `${TILTS[n % TILTS.length]}deg`,
-                      translate: `0 ${LIFTS[n % LIFTS.length]}px`,
+                      translate: level ? undefined : `0 ${LIFTS[n % LIFTS.length]}px`,
+                      ...(jump && jumpStyle(n)),
                     }}
                   />
                 );
@@ -129,6 +158,6 @@ export default function CutoutTitle({
           ))}
         </span>
       ))}
-    </h1>
+    </Tag>
   );
 }

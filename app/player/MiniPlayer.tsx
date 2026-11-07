@@ -84,7 +84,8 @@ export default function MiniPlayer() {
         onClose={close}
         closeLabel="Stop and close mini player"
         href={`/player/${session.playlistId}`}
-        className="aspect-square w-[min(80vw,18rem)]"
+        // Height follows the contents, so there is always room below the buttons.
+        className="w-[min(80vw,18rem)]"
         discClassName="w-36"
         titleBarProps={titleBarProps}
       />

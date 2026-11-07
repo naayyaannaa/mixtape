@@ -5,11 +5,26 @@ import type { PlaylistTrack } from "@/lib/playlist";
 
 const SDK_SRC = "https://sdk.scdn.co/spotify-player.js";
 const READY_TIMEOUT_MS = 15_000;
+/** How long a tracklist click's head start counts as "this song is already starting". */
+const PRIMED_MS = 10_000;
 
 // Shows up in the browser console (and in `next dev`'s log file).
 export const log = (...args: unknown[]) => console.info("[mixtape player]", ...args);
 
-export type NowPlaying = { position?: number; name: string; artists: string; cover?: string };
+export type NowPlaying = {
+  /** 0-based position in the playlist, when we know the playlist's tracks. */
+  position?: number;
+  /** spotify:track:… */
+  uri?: string;
+  name: string;
+  artists: string;
+  cover?: string;
+};
+
+/** Where to start a playlist: a 0-based track position, or a specific song. */
+export type Start = { position: number } | { uri: string };
+const startKey = (playlistId: string, start: Start) =>
+  `${playlistId}:${"uri" in start ? start.uri : start.position}`;
 
 type Session = {
   playlistId: string;
@@ -27,10 +42,15 @@ type Playback = {
   /** off → whole playlist → this song. */
   repeat: Repeat;
   /**
-   * Show this playlist in the player. `track` (0-based position) starts that track;
-   * null keeps whatever is already playing from this playlist (or starts at the top).
+   * Show this playlist in the player. `start` starts that track; null keeps
+   * whatever is already playing from this playlist (or starts at the top).
    */
-  open: (playlistId: string, tracks: PlaylistTrack[] | null, track: number | null) => void;
+  open: (playlistId: string, tracks: PlaylistTrack[] | null, start: Start | null) => void;
+  /**
+   * Start a track right away, before the player page has loaded (e.g. on a
+   * tracklist click). The page's own open() for the same track then just attaches.
+   */
+  prime: (playlistId: string, position: number) => void;
   playPause: () => void;
   next: () => void;
   previous: () => void;
@@ -53,7 +73,13 @@ export function usePlayback() {
   return ctx;
 }
 
-async function getToken(): Promise<string> {
+// The access token, kept in memory so each Spotify command doesn't first need a
+// round trip to our server. Re-fetched after a while, or when Spotify says 401.
+const TOKEN_TTL_MS = 5 * 60_000;
+let tokenCache: { token: string; at: number } | null = null;
+
+async function getToken(fresh = false): Promise<string> {
+  if (!fresh && tokenCache && Date.now() - tokenCache.at < TOKEN_TTL_MS) return tokenCache.token;
   const res = await fetch("/api/auth/token", { cache: "no-store" });
   if (res.status === 401) {
     // Full reload on purpose: session is gone, start fresh at the login page.
@@ -62,7 +88,23 @@ async function getToken(): Promise<string> {
     throw new Error("Not logged in");
   }
   const { accessToken } = await res.json();
+  tokenCache = { token: accessToken, at: Date.now() };
   return accessToken;
+}
+
+/** fetch() to the Spotify Web API with our token; retries once with a fresh token on 401. */
+async function spotify(path: string, init: { method?: string; body?: unknown } = {}) {
+  const send = (token: string) =>
+    fetch(`https://api.spotify.com/v1/${path}`, {
+      method: init.method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...(init.body !== undefined && { "Content-Type": "application/json" }),
+      },
+      body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+    });
+  const res = await send(await getToken());
+  return res.status === 401 ? send(await getToken(true)) : res;
 }
 
 const EMPTY: NowPlaying = { name: "", artists: "" };
@@ -91,8 +133,13 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
   /** Playback has started for the current session (so play/pause toggles, not restarts). */
   const startedRef = useRef(false);
   /** What to play once the device is ready / the request in flight (dedupes repeat opens). */
-  const wantedRef = useRef<{ playlistId: string; position: number } | null>(null);
+  const wantedRef = useRef<{ playlistId: string; start: Start } | null>(null);
   const inFlightRef = useRef<string | null>(null);
+  /**
+   * A track just started by prime(). Its player page's open() for the same track
+   * only attaches to it (also when React's dev mode opens the page twice).
+   */
+  const primedRef = useRef<{ key: string; at: number } | null>(null);
 
   useEffect(() => {
     nowRef.current = now;
@@ -102,45 +149,35 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
   const command = useCallback(async (method: "PUT" | "POST", path: string) => {
     const deviceId = deviceRef.current;
     if (!deviceId) return null;
-    const token = await getToken();
     const sep = path.includes("?") ? "&" : "?";
-    return fetch(`https://api.spotify.com/v1/me/player/${path}${sep}device_id=${deviceId}`, {
-      method,
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    return spotify(`me/player/${path}${sep}device_id=${deviceId}`, { method });
   }, []);
 
   // Ask Spotify to play a playlist on our in-browser device, from a given track.
-  const play = useCallback(async (playlistId: string, position: number) => {
-    wantedRef.current = { playlistId, position };
+  const play = useCallback(async (playlistId: string, start: Start) => {
+    wantedRef.current = { playlistId, start };
     const deviceId = deviceRef.current;
     if (!deviceId) return; // the "ready" listener plays it once the device exists
-    const key = `${playlistId}:${position}:${deviceId}`;
+    const key = `${startKey(playlistId, start)}:${deviceId}`;
     if (inFlightRef.current === key) return;
     inFlightRef.current = key;
 
     try {
-      const token = await getToken();
       const request = () =>
-        fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+        spotify(`me/player/play?device_id=${deviceId}`, {
           method: "PUT",
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            context_uri: `spotify:playlist:${playlistId}`,
-            offset: { position },
-          }),
+          body: { context_uri: `spotify:playlist:${playlistId}`, offset: start },
         });
 
       let res = await request();
-      log("play request →", res.status);
+      log(`play request (${startKey(playlistId, start)}) →`, res.status);
       // A brand-new device can take a few seconds to register with Spotify ("Device not found").
       for (let attempt = 1; res.status === 404 && attempt <= 5; attempt++) {
         if (attempt === 2) {
           // Handing playback to the device explicitly often makes Spotify recognise it.
-          const t = await fetch("https://api.spotify.com/v1/me/player", {
+          const t = await spotify("me/player", {
             method: "PUT",
-            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ device_ids: [deviceId], play: false }),
+            body: { device_ids: [deviceId], play: false },
           });
           log("transfer playback →", t.status);
         }
@@ -162,9 +199,7 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
         log("play failed:", await res.text());
         if (res.status === 404) {
           // Which devices Spotify actually knows about, to tell a stale device from a lost one.
-          const d = await fetch("https://api.spotify.com/v1/me/player/devices", {
-            headers: { Authorization: `Bearer ${token}` },
-          });
+          const d = await spotify("me/player/devices");
           const { devices = [] } = d.ok ? await d.json() : {};
           log(
             "our device", deviceId, "| Spotify sees:",
@@ -198,7 +233,8 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
       log("SDK loaded, creating player");
       const player = new window.Spotify.Player({
         name: "Mixtape",
-        getOAuthToken: (cb) => void getToken().then(cb),
+        // The SDK only asks when its token has run out, so always hand it a fresh one.
+        getOAuthToken: (cb) => void getToken(true).then(cb),
         volume: 0.8,
       });
       playerRef.current = player;
@@ -210,7 +246,7 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
         const wanted = wantedRef.current;
         if (wanted) {
           setMessage("Starting…");
-          void play(wanted.playlistId, wanted.position);
+          void play(wanted.playlistId, wanted.start);
         }
       });
       player.addListener("not_ready", () => {
@@ -224,6 +260,7 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
         const match = sessionRef.current?.tracks?.find((x) => x.uri === uri || x.uri === t.uri);
         setNow({
           position: match?.position,
+          uri,
           name: t.name,
           artists: t.artists.map((a) => a.name).join(", "),
           cover: t.album.images[0]?.url,
@@ -272,34 +309,83 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
     }
   }, [play]);
 
+  /** Switch to a playlist: forget the old one's song and state. */
+  const switchTo = useCallback((playlistId: string, tracks: PlaylistTrack[] | null) => {
+    const next = { playlistId, tracks };
+    sessionRef.current = next;
+    setSession(next);
+  }, []);
+
   const open = useCallback(
-    (playlistId: string, tracks: PlaylistTrack[] | null, track: number | null) => {
+    (playlistId: string, tracks: PlaylistTrack[] | null, start: Start | null) => {
       const same = sessionRef.current?.playlistId === playlistId;
-      const next = { playlistId, tracks };
-      sessionRef.current = next;
-      setSession(next);
+      switchTo(playlistId, tracks);
+
+      // Tracks may arrive after the song started (prime()): fill in its position.
+      const uri = nowRef.current.uri;
+      if (tracks && uri && nowRef.current.position === undefined) {
+        const position = tracks.find((t) => t.uri === uri)?.position;
+        if (position !== undefined) setNow((n) => (n.uri === uri ? { ...n, position } : n));
+      }
+
+      // Just started from the tracklist click: nothing more to do.
+      const primed = primedRef.current;
+      if (start && primed?.key === startKey(playlistId, start) && Date.now() - primed.at < PRIMED_MS) {
+        return;
+      }
 
       if (same) {
         // Back to the playlist that's already on: keep playing unless a different
         // track was picked.
-        if (track === null || track === nowRef.current.position) return;
+        if (start === null) return;
+        const now = nowRef.current;
+        if ("uri" in start ? start.uri === now.uri : start.position === now.position) return;
         const wanted = wantedRef.current;
-        if (!startedRef.current && wanted?.playlistId === playlistId && wanted.position === track) {
+        if (
+          !startedRef.current &&
+          wanted?.playlistId === playlistId &&
+          startKey(playlistId, wanted.start) === startKey(playlistId, start)
+        ) {
           return; // already on its way (e.g. React dev mode calling this twice)
         }
       } else {
         startedRef.current = false;
-        const first = tracks?.find((t) => t.position === (track ?? 0));
+        const first =
+          start && "position" in start ? tracks?.find((t) => t.position === start.position) : tracks?.[0];
         setNow(first ?? EMPTY);
         setTime({ position: 0, duration: 0 });
         setPaused(true);
       }
       setMessage(deviceRef.current ? "Starting…" : "Loading player…");
       ensurePlayer();
-      void play(playlistId, track ?? 0);
+      void play(playlistId, start ?? { position: 0 });
     },
-    [ensurePlayer, play],
+    [ensurePlayer, play, switchTo],
   );
+
+  const prime = useCallback(
+    (playlistId: string, position: number) => {
+      const start = { position };
+      if (sessionRef.current?.playlistId !== playlistId) {
+        // Track list arrives with the player page; until then show nothing stale.
+        switchTo(playlistId, null);
+        startedRef.current = false;
+        setNow(EMPTY);
+        setTime({ position: 0, duration: 0 });
+      }
+      primedRef.current = { key: startKey(playlistId, start), at: Date.now() };
+      setMessage(deviceRef.current ? "Starting…" : "Loading player…");
+      ensurePlayer();
+      void play(playlistId, start);
+    },
+    [ensurePlayer, play, switchTo],
+  );
+
+  // Connect the in-browser Spotify device as soon as the app opens (not on the
+  // first play), so the first song starts without waiting for it.
+  useEffect(() => {
+    if (window.location.pathname !== "/login") ensurePlayer();
+  }, [ensurePlayer]);
 
   // Spotify only reports the position on changes, so advance it locally while playing.
   useEffect(() => {
@@ -316,30 +402,36 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
     const s = sessionRef.current;
     if (!player || !s) return;
     await player.activateElement(); // unlocks audio on Safari/mobile
-    if (!startedRef.current) await play(s.playlistId, nowRef.current.position ?? 0);
+    if (!startedRef.current) await play(s.playlistId, { position: nowRef.current.position ?? 0 });
     else await player.togglePlay();
   }, [play]);
 
   // Skip via the Web API, which is more reliable than the SDK's nextTrack/previousTrack;
-  // fall back to the SDK if the request fails.
+  // fall back to the SDK if the request fails. When the order is known (shuffle
+  // off), show the new song straight away instead of waiting for Spotify.
   const skip = useCallback(
     async (direction: "next" | "previous") => {
       const player = playerRef.current;
       const deviceId = deviceRef.current;
       const s = sessionRef.current;
       if (!player || !deviceId || !s) return;
-      if (!startedRef.current) return void (await play(s.playlistId, nowRef.current.position ?? 0));
-      const token = await getToken();
-      const res = await fetch(
-        `https://api.spotify.com/v1/me/player/${direction}?device_id=${deviceId}`,
-        { method: "POST", headers: { Authorization: `Bearer ${token}` } },
-      );
-      if (!res.ok) {
+      if (!startedRef.current) {
+        return void (await play(s.playlistId, { position: nowRef.current.position ?? 0 }));
+      }
+      const { tracks } = s;
+      const i = tracks?.findIndex((t) => t.position === nowRef.current.position) ?? -1;
+      const upcoming = tracks && i >= 0 && !shuffleRef.current ? tracks[i + (direction === "next" ? 1 : -1)] : undefined;
+      if (upcoming) {
+        setNow(upcoming);
+        setTime({ position: 0, duration: 0 });
+      }
+      const res = await command("POST", direction);
+      if (res && !res.ok) {
         log(`${direction} →`, res.status, await res.text());
         await (direction === "next" ? player.nextTrack() : player.previousTrack());
       }
     },
-    [play],
+    [command, play],
   );
 
   const seek = useCallback((ms: number) => {
@@ -417,6 +509,7 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
       shuffle,
       repeat,
       open,
+      prime,
       playPause: () => void playPause(),
       next: () => void skip("next"),
       previous: () => void skip("previous"),
@@ -425,7 +518,7 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
       cycleRepeat,
       close,
     }),
-    [session, now, paused, time, message, shuffle, repeat, open, playPause, skip, seek, toggleShuffle, cycleRepeat, close],
+    [session, now, paused, time, message, shuffle, repeat, open, prime, playPause, skip, seek, toggleShuffle, cycleRepeat, close],
   );
 
   return <PlaybackContext.Provider value={value}>{children}</PlaybackContext.Provider>;

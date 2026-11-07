@@ -5,6 +5,7 @@ export const STATE_COOKIE = "sp_auth_state";
 export const SCOPES = [
   "playlist-read-private",
   "playlist-read-collaborative",
+  "user-library-read", // Liked Songs
   "streaming",
   "user-read-email",
   "user-read-private",

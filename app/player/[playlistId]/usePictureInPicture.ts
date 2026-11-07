@@ -59,7 +59,10 @@ export function usePictureInPicture({ width = 320, height = 320 } = {}) {
     if (!supported) return;
     const action = "enterpictureinpicture" as MediaSessionAction;
     try {
-      navigator.mediaSession.setActionHandler(action, () => void open());
+      navigator.mediaSession.setActionHandler(action, () => {
+        console.info("[mixtape player] browser asked for automatic PiP");
+        void open();
+      });
     } catch {
       return; // browser doesn't support automatic PiP
     }

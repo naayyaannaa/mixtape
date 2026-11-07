@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Jersey_10 } from "next/font/google";
 import "./globals.css";
+import PlaybackProvider from "./player/PlaybackProvider";
+import MiniPlayer from "./player/MiniPlayer";
+import FullscreenKey from "./components/FullscreenKey";
 
 const jersey = Jersey_10({
   weight: "400",
@@ -39,7 +43,18 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${jersey.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {/* Owns the Spotify player, so music keeps playing across pages. */}
+        <FullscreenKey />
+        <PlaybackProvider>
+          {children}
+          {/* Reads the current URL, which dynamic routes (/player/[id]…) only know
+              at request time: Suspense lets the rest of each page prerender. */}
+          <Suspense fallback={null}>
+            <MiniPlayer />
+          </Suspense>
+        </PlaybackProvider>
+      </body>
     </html>
   );
 }

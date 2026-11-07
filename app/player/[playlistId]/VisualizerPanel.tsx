@@ -5,6 +5,8 @@ import PixelIcon from "../../components/PixelIcon";
 import { HUE_RANGE, TONE_RANGE, hslToRgb } from "./MeshBackground";
 import type { VisualizerSettings } from "./useVisualizerSettings";
 
+const IDLE_CLOSE_MS = 5000;
+
 const css = (h: number) => `rgb(${hslToRgb([((h % 1) + 1) % 1, 0.75, 0.55]).map(Math.round).join(" ")})`;
 
 /** Top-right button + popover with the background's colour and texture sliders. */
@@ -22,6 +24,19 @@ export default function VisualizerPanel({
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+
+  // Closes by itself after 5 s without being touched (any pointer, slider or
+  // key activity inside the popup restarts the countdown).
+  const closeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const touched = () => {
+    clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => setOpen(false), IDLE_CLOSE_MS);
+  };
+  useEffect(() => {
+    if (!open) return;
+    touched();
+    return () => clearTimeout(closeTimer.current);
+  }, [open]);
 
   // Close on a click outside or Escape.
   useEffect(() => {
@@ -54,7 +69,9 @@ export default function VisualizerPanel({
     v <= -HUE_RANGE - TONE_RANGE / 2 ? "#000" : v >= HUE_RANGE + TONE_RANGE / 2 ? "#fff" : css(centerHue + v / 360);
 
   return (
-    <div ref={rootRef} className="relative" data-own-keys>
+    // Not `relative`: the popover lines up with the right edge of the nearest
+    // positioned ancestor (the player's top bar), not with this button.
+    <div ref={rootRef} data-own-keys>
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label="Background settings"
@@ -65,11 +82,16 @@ export default function VisualizerPanel({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-20 mt-4 flex w-72 flex-col gap-4 bg-black/45 p-5 text-xl text-white shadow-[4px_4px_0_rgba(0,0,0,0.5)] backdrop-blur-md">
+        <div
+          onPointerMove={touched}
+          onPointerDown={touched}
+          onInput={touched}
+          onKeyDown={touched}
+          className="absolute right-0 top-full z-20 mt-4 flex w-72 flex-col gap-4 bg-white p-5 text-xl text-black shadow-[4px_4px_0_rgba(0,0,0,0.5)]">
           <label className="flex flex-col gap-2">
             <span className="flex items-center justify-between">
               Colour
-              <span className="size-5 outline outline-1 outline-white/40" style={{ background: swatch }} />
+              <span className="size-5 outline outline-1 outline-black/30" style={{ background: swatch }} />
             </span>
             <input
               type="range"
@@ -93,7 +115,7 @@ export default function VisualizerPanel({
               value={settings.noise}
               onChange={(e) => onChange({ noise: Number(e.target.value) })}
               className="pixel-range"
-              style={{ background: "rgb(255 255 255 / 0.35)" }}
+              style={{ background: "rgb(0 0 0 / 0.2)" }}
             />
           </label>
 
@@ -111,7 +133,7 @@ export default function VisualizerPanel({
             />
           </label>
 
-          <button onClick={onReset} className="self-center text-xl opacity-80 transition hover:opacity-100 active:scale-95">
+          <button onClick={onReset} className="mt-3 self-center text-xl opacity-80 transition hover:opacity-100 active:scale-95">
             Reset
           </button>
         </div>

@@ -1,7 +1,10 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { ACCESS_COOKIE, SpotifyError } from "./spotify";
-import { getPlaylistTracks } from "./playlist";
+import { getLikedTracks, getPlaylistTracks } from "./playlist";
+import { LIKED_ID } from "./liked";
+import { getCollection } from "./collection";
 
 /** Clears the dead login cookies, then shows the login page (see the route). */
 const SESSION_EXPIRED = "/api/auth/expired";
@@ -27,10 +30,25 @@ export async function withSpotify<T>(fn: (token: string) => Promise<T>): Promise
 /** A playlist's tracks; an expired token sends the user to /login. */
 export async function loadPlaylistTracks(playlistId: string) {
   const token = await requireAccessToken();
-  const result = await getPlaylistTracks(playlistId, token);
+  const result =
+    playlistId === LIKED_ID ? await getLikedTracks(token) : await getPlaylistTracks(playlistId, token);
   if (!result.ok) {
     if (result.status === 401) redirect(SESSION_EXPIRED);
     console.error(`Playlist ${playlistId}: Spotify ${result.status} ${result.message}`);
   }
   return result;
 }
+
+/**
+ * The user and their playlists (cached); an expired token sends the user to
+ * /login. Wrapped in React's cache() so the title and the list share one call.
+ */
+export const loadCollection = cache(async () => {
+  const token = await requireAccessToken();
+  const result = await getCollection(token);
+  if (!result.ok) {
+    if (result.status === 401) redirect(SESSION_EXPIRED);
+    console.error("[collection]", result.status, result.message);
+  }
+  return result;
+});

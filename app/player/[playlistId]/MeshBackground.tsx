@@ -200,6 +200,15 @@ async function samplePalette(url: string): Promise<Palette> {
 const textFor = (colors: RGB[]) =>
   colors.reduce((s, c) => s + lum(c), 0) / colors.length > 0.55 ? "#161616" : "#ffffff";
 
+/** The palette's lightest colour as CSS, plus a text colour that reads on it. */
+export function lightestColor(p: Palette): { color: string; text: string } {
+  const c = p.colors.reduce((a, b) => (lum(b) > lum(a) ? b : a));
+  return {
+    color: `rgb(${c.map(Math.round).join(" ")})`,
+    text: lum(c) > 0.55 ? "#161616" : "#ffffff",
+  };
+}
+
 /** The colour slider's range: ±180° of hues, plus a black end and a white end beyond them. */
 export const HUE_RANGE = 180;
 export const TONE_RANGE = 30;

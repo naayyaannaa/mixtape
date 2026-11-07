@@ -36,6 +36,7 @@ body {
 /* Pixel-style range slider: square track (background set inline) and a square thumb. */
 .pixel-range {
   appearance: none;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.35);
   height: 10px;
   width: 100%;
   cursor: pointer;
@@ -46,7 +47,7 @@ body {
   width: 14px;
   height: 22px;
   background: #fff;
-  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.7), 2px 2px 0 rgba(0, 0, 0, 0.6);
 }
 .pixel-range::-moz-range-thumb {
   width: 14px;
@@ -54,27 +55,47 @@ body {
   border: 0;
   border-radius: 0;
   background: #fff;
-  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.7), 2px 2px 0 rgba(0, 0, 0, 0.6);
 }
 
-/* Old-Windows bevels (mini player). Raised: light top-left, dark bottom-right. */
-.win-raised {
-  background: #c0c0c0;
+/* Old-Windows bevels (mini / pop-out player). Edges are see-through white and
+   black, so they work on any face colour. Raised: lighter top-left, darker
+   bottom-right. Sunken (pressed button, content area): the edges flipped.
+   Buttons use the window's --retro-face / --retro-ink (the background's lightest
+   colour); the frame stays slate. */
+.retro-raised,
+.retro-frame {
   box-shadow:
-    inset -1px -1px #0a0a0a,
-    inset 1px 1px #ffffff,
-    inset -2px -2px #808080,
-    inset 2px 2px #dfdfdf;
+    inset -1px -1px rgb(0 0 0 / 0.75),
+    inset 1px 1px rgb(255 255 255 / 0.6),
+    inset -2px -2px rgb(0 0 0 / 0.3),
+    inset 2px 2px rgb(255 255 255 / 0.25);
 }
-/* Pressed button / sunken field: the same edges flipped. */
-.win-raised:is(button):active,
-.win-sunken {
+.retro-raised {
+  background: var(--retro-face, #26323f);
+  color: var(--retro-ink, #fff);
+  transition: background-color 1s, color 1s;
+}
+.retro-frame {
+  background: #26323f;
+}
+.retro-raised:is(button):active,
+.retro-sunken {
   box-shadow:
-    inset -1px -1px #ffffff,
-    inset 1px 1px #0a0a0a,
-    inset -2px -2px #dfdfdf,
-    inset 2px 2px #808080;
+    inset -1px -1px rgb(255 255 255 / 0.6),
+    inset 1px 1px rgb(0 0 0 / 0.75),
+    inset -2px -2px rgb(255 255 255 / 0.25),
+    inset 2px 2px rgb(0 0 0 / 0.3);
 }
-.win-titlebar {
-  background: linear-gradient(90deg, #000080, #1084d0);
+
+/* Loading screen: each magazine letter hops up and back (staggered per letter). */
+@keyframes letter-jump {
+  0%,
+  50%,
+  100% {
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(-35%);
+  }
 }

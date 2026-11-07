@@ -4,9 +4,10 @@ import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import PixelIcon from "../../components/PixelIcon";
+import { toggleFullscreen } from "../../components/FullscreenKey";
 import Controls from "../Controls";
 import RetroWindow from "../RetroWindow";
-import { log, usePlayback } from "../PlaybackProvider";
+import { usePlayback, type Start } from "../PlaybackProvider";
 import Disc from "./Disc";
 import MeshBackground, { accentHue, shiftPalette, useCoverPalette } from "./MeshBackground";
 import VisualizerPanel from "./VisualizerPanel";
@@ -26,20 +27,38 @@ const IDLE_MS = 30_000;
 export default function Player({
   playlistId,
   tracks,
-  requestedTrack,
+  requestedStart,
 }: {
   playlistId: string;
   /** null = a followed playlist whose track list Spotify won't share with this app. */
   tracks: PlaylistTrack[] | null;
-  /** 0-based track to start, or null to keep what's already playing from this playlist. */
-  requestedTrack: number | null;
+  /** Track to start, or null to keep what's already playing from this playlist. */
+  requestedStart: Start | null;
 }) {
   const playback = usePlayback();
-  const { now, paused, time, message, open } = playback;
+  const { now, paused, time, message, open, session } = playback;
 
+  // Props from the server are new objects on every render; compare by value.
+  const startKey = requestedStart && JSON.stringify(requestedStart);
   useEffect(() => {
-    open(playlistId, tracks, requestedTrack);
-  }, [open, playlistId, tracks, requestedTrack]);
+    open(playlistId, tracks, startKey ? (JSON.parse(startKey) as Start) : null);
+  }, [open, playlistId, tracks, startKey]);
+
+  // Keep the address on the song that's playing (next/previous, end of a song…),
+  // so a refresh carries on from it. replaceState: no navigation, no reload.
+  const onThisPlaylist = session?.playlistId === playlistId;
+  useEffect(() => {
+    if (!onThisPlaylist) return;
+    let query: string | null = null;
+    if (tracks) {
+      if (now.position !== undefined) query = `?track=${now.position + 1}`;
+    } else if (now.uri?.startsWith("spotify:track:")) {
+      query = `?song=${now.uri.slice("spotify:track:".length)}`;
+    }
+    if (query && query !== window.location.search) {
+      window.history.replaceState(null, "", `${window.location.pathname}${query}`);
+    }
+  }, [onThisPlaylist, tracks, now.position, now.uri]);
 
   const pip = usePictureInPicture();
 
@@ -56,7 +75,8 @@ export default function Player({
     onNext: playback.next,
   };
 
-  // Keyboard: Space / K = play/pause, ← = previous, → = next. Works in the mini player too.
+  // Keyboard: Space / K = play/pause, ← = previous, → = next (these work in the
+  // pop-out mini player too). F = full screen is app-wide (<FullscreenKey>).
   const controlsRef = useRef(controls);
   useEffect(() => {
     controlsRef.current = controls;
@@ -86,42 +106,11 @@ export default function Player({
     return () => targets.forEach((w) => w.removeEventListener("keydown", onKey));
   }, [pip.pipWindow]);
 
-  // After a while without mouse movement only the disc and background stay on screen.
+  // Screen-saver mode: after a while without mouse movement the top bar (track
+  // list / home links, background controls, pop-out, full screen, track number)
+  // fades out. The disc, song, artist and playback controls stay.
   const idle = useIdle(IDLE_MS);
   const fade = `transition-opacity duration-700 ${idle ? "pointer-events-none opacity-0" : "opacity-100"}`;
-
-  // In screen-saver mode the disc glides to the middle of the screen and grows.
-  // Measured from its (untransformed) slot so the layout itself never moves.
-  const discSlotRef = useRef<HTMLDivElement>(null);
-  const discZoomRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const slot = discSlotRef.current;
-    const zoom = discZoomRef.current;
-    if (!slot || !zoom) return;
-    if (!idle) {
-      zoom.style.transform = "";
-      return;
-    }
-    const fit = () => {
-      const r = slot.getBoundingClientRect();
-      const dx = window.innerWidth / 2 - (r.left + r.width / 2);
-      const dy = window.innerHeight / 2 - (r.top + r.height / 2);
-      const scale = Math.max(1, (Math.min(window.innerWidth, window.innerHeight) * 0.5) / r.width);
-      zoom.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`;
-    };
-    fit();
-    window.addEventListener("resize", fit);
-    return () => window.removeEventListener("resize", fit);
-  }, [idle]);
-
-  const toggleFullscreen = async () => {
-    try {
-      if (document.fullscreenElement) await document.exitFullscreen();
-      else await document.documentElement.requestFullscreen();
-    } catch (e) {
-      log("fullscreen not allowed:", e);
-    }
-  };
 
   return (
     <div
@@ -129,16 +118,24 @@ export default function Player({
       style={{ color: palette.text }}
     >
       <MeshBackground colors={palette.colors} noise={look.noise} brightness={look.brightness} />
-      <header className={`flex w-full items-center justify-between ${fade}`}>
+      {/* relative: the background-settings popup lines up with its right edge. */}
+      <header className={`relative z-10 flex w-full items-center justify-between ${fade}`}>
         <nav className="flex items-center gap-6">
-          {tracks && (
-            <Link href={`/tracklist/${playlistId}`} aria-label="Track list">
-              <PixelIcon name="menu" size={26} />
+          {tracks ? (
+            <>
+              <Link href={`/tracklist/${playlistId}`} aria-label="Back to track list">
+                <PixelIcon name="back" size={26} />
+              </Link>
+              <Link href="/collection" aria-label="Collection">
+                <PixelIcon name="home" size={32} />
+              </Link>
+            </>
+          ) : (
+            // Someone else's playlist: no track list to go back to, so back = collection.
+            <Link href="/collection" aria-label="Back to collection">
+              <PixelIcon name="back" size={26} />
             </Link>
           )}
-          <Link href="/collection" aria-label="Collection">
-            <PixelIcon name="home" size={32} />
-          </Link>
         </nav>
         <div className="flex items-center gap-6">
           <VisualizerPanel
@@ -160,18 +157,14 @@ export default function Player({
       </header>
 
       <main className="flex flex-1 flex-col items-center justify-center gap-6">
-        <div ref={discSlotRef}>
-          <div ref={discZoomRef} className="transition-transform duration-1000 ease-in-out">
-            <Disc cover={now.cover} spinning={!paused} />
-          </div>
-        </div>
+        <Disc cover={now.cover} spinning={!paused} />
 
-        <div className={`flex flex-col items-center text-center ${fade}`}>
+        <div className="flex flex-col items-center text-center">
           <h1 className="text-4xl leading-tight sm:text-5xl">{now.name}</h1>
           <p className="text-2xl sm:text-3xl">{now.artists}</p>
         </div>
 
-        <div className={`flex w-full flex-col items-center gap-6 ${fade}`}>
+        <div className="flex w-full flex-col items-center gap-6">
           <ProgressBar position={time.position} duration={time.duration} onSeek={playback.seek} />
 
           <Controls

@@ -1,81 +1,45 @@
-import { Suspense, cache } from "react";
+import { Suspense } from "react";
 import Link from "next/link";
-import { unstable_rethrow } from "next/navigation";
 import CutoutTitle from "../components/CutoutTitle";
 import CdCase from "../components/CdCase";
-import { withSpotify } from "@/lib/session";
-import { SpotifyError, spotifyGet, type Paging, type SimplifiedPlaylist } from "@/lib/spotify";
-
-/** Every playlist in the user's library (owned and followed), 50 per page. */
-async function getAllPlaylists(token: string) {
-  const all: SimplifiedPlaylist[] = [];
-  for (let offset = 0; ; offset += 50) {
-    const page = await spotifyGet<Paging<SimplifiedPlaylist>>(
-      `/me/playlists?limit=50&offset=${offset}`,
-      token,
-    );
-    all.push(...page.items.filter(Boolean));
-    if (!page.next) return all;
-  }
-}
-
-type Me = { id: string; display_name: string | null };
-/** The signed-in user, fetched once per request (title and playlists both need it). */
-const getMe = cache((token: string) => spotifyGet<Me>("/me", token));
+import Loading from "../components/Loading";
+import StarField from "../components/StarField";
+import { loadCollection } from "@/lib/session";
+import type { SimplifiedPlaylist } from "@/lib/spotify";
 
 /** Only names made of letters/digits we have cutouts for; anything else falls back. */
 const cutoutable = (name: string) =>
   /[A-Z0-9]/i.test(name.normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
 
+// 80px letters on wide screens; narrower screens shrink, then wrap (see CutoutTitle).
+const TITLE_SIZE = { maxHeight: "80px", wordGap: 1.1 };
+
 async function Title() {
-  let name: string | null = null;
-  try {
-    name = (await withSpotify(getMe)).display_name?.trim() || null;
-  } catch (e) {
-    unstable_rethrow(e); // let Next's redirect to /login (expired session) through
-    // Playlists() below explains Spotify errors; the title just stays generic.
-  }
-  if (!name || !cutoutable(name)) return <CutoutTitle text="My Mixtapes" />;
-  // Long full names shrink every letter to fit one line, so use just the first name.
+  // Same cached request as Playlists() below; on errors the title stays generic.
+  const result = await loadCollection();
+  const name = result.ok ? result.me.display_name?.trim() || null : null;
+  if (!name || !cutoutable(name)) return <CutoutTitle text="My Mixes" {...TITLE_SIZE} />;
+  // Long full names would wrap over several lines, so use just the first name.
   const short = name.length > 14 ? name.split(/\s+/)[0] : name;
-  return <CutoutTitle text={`${short}'s Mixtapes`} />;
+  return <CutoutTitle text={`${short}'s Mixes`} {...TITLE_SIZE} />;
 }
 
 async function Playlists() {
-  let me: { id: string };
-  let playlists: SimplifiedPlaylist[];
-  try {
-    [me, playlists] = await withSpotify((token) =>
-      Promise.all([getMe(token), getAllPlaylists(token)]),
-    );
-  } catch (e) {
-    unstable_rethrow(e); // Next's redirect to /login
-    if (!(e instanceof SpotifyError)) {
-      // Network trouble (e.g. "fetch failed"): no answer from Spotify at all.
-      console.error("[collection]", e);
-      return (
-        <p className="max-w-xl text-center text-2xl text-white">
-          Couldn&apos;t reach Spotify. Check your connection and reload.
-        </p>
-      );
-    }
-    console.error("[collection]", e.message);
-    // Development Mode apps only serve Spotify accounts the app owner has added
-    // in the Developer Dashboard; everyone else gets 403 on every call.
-    if (e.status === 403) {
-      return (
-        <p className="max-w-xl text-center text-2xl text-white">
-          This Spotify account isn&apos;t on Mixtape&apos;s guest list yet. Ask the owner to add
-          the email you use for Spotify, then log out and log in again.
-        </p>
-      );
-    }
-    return (
-      <p className="max-w-xl text-center text-2xl text-white">
-        Spotify didn&apos;t answer properly (error {e.status}). Try again in a minute.
-      </p>
-    );
+  const result = await loadCollection();
+  if (!result.ok) {
+    const text =
+      result.status === 0
+        ? "Couldn't reach Spotify. Check your connection and reload."
+        : result.status === 429
+          ? // Development Mode apps get a limited number of Spotify requests.
+            "Spotify is limiting requests right now. Give it a few minutes, then reload."
+          : result.status === 403
+            ? // Development Mode apps only serve accounts the owner added in the Developer Dashboard.
+              "This Spotify account isn't on Mixtape's guest list yet. Ask the owner to add the email you use for Spotify, then log out and log in again."
+            : `Spotify didn't answer properly (error ${result.status}). Try again in a minute.`;
+    return <p className="max-w-xl text-center text-2xl text-black">{text}</p>;
   }
+  const { me, playlists } = result;
   // Spotify's Development Mode only lets apps read the track list of playlists the
   // user owns or collaborates on. Others (followed playlists) can still be *played*,
   // so they skip the tracklist and go straight to the player.
@@ -85,13 +49,22 @@ async function Playlists() {
   );
 
   if (playlists.length === 0) {
-    return <p className="text-2xl text-white">No playlists found on your Spotify account.</p>;
+    return <p className="text-2xl text-black">No playlists found on your Spotify account.</p>;
   }
 
   return (
-    <ul className="grid w-full max-w-6xl grid-cols-4 gap-x-8 gap-y-14 sm:gap-x-14 sm:gap-y-20 sm:px-6">
+    // Up to 3 cases a row, spread across the full width. A column is never
+    // narrower than 15rem (or a third of the row), so on smaller screens columns
+    // drop to the next row instead of the cases shrinking or touching.
+    <ul
+      className="grid w-full justify-items-center gap-x-12 gap-y-16 sm:gap-y-20"
+      style={{
+        gridTemplateColumns:
+          "repeat(auto-fill, minmax(max(min(100%, 15rem), calc((100% - 2 * 3rem) / 3)), 1fr))",
+      }}
+    >
       {playlists.map((p) => (
-        <li key={p.id}>
+        <li key={p.id} className="w-full max-w-[22rem]">
           <Link
             href={canListTracks(p) ? `/tracklist/${p.id}` : `/player/${p.id}`}
             className="group flex flex-col items-center gap-2"
@@ -99,7 +72,7 @@ async function Playlists() {
             <div className="w-full transition-transform duration-200 group-hover:-translate-y-1 group-hover:rotate-1">
               <CdCase cover={p.images?.[0]?.url} />
             </div>
-            <span className="text-center text-lg leading-tight text-white sm:text-2xl">
+            <span className="text-center text-lg leading-tight text-black sm:text-2xl">
               {p.name}
             </span>
           </Link>
@@ -109,20 +82,34 @@ async function Playlists() {
   );
 }
 
+// One loading screen for the whole page: it appears once the name and the
+// playlists are both in, rather than piece by piece.
 export default function CollectionPage() {
   return (
-    <div className="flex min-h-screen flex-1 flex-col items-center gap-10 bg-grey-noise px-4 pb-16">
+    <Suspense fallback={<Loading />}>
+      <CollectionContent />
+    </Suspense>
+  );
+}
+
+function CollectionContent() {
+  return (
+    <div className="relative isolate flex min-h-screen flex-1 flex-col items-center gap-10 bg-[#f4f2ec] px-6 pb-16 sm:px-10">
+      {/* Same stars as the login and track list pages, under the plastic texture. */}
+      <StarField color="#fff" outline />
+      {/* Plastic texture over the pale off-white: soft light at 80% opacity. */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 -z-10 bg-[url('/assets/plastic-big.png')] bg-cover bg-center opacity-80 mix-blend-soft-light"
+      />
       <header className="w-full px-4 pt-10 pb-10 sm:pt-14 sm:pb-16">
-        {/* Same height as the title while the name loads, so nothing jumps. */}
-        <Suspense fallback={<div className="h-[min(10vw,5.5rem)]" />}>
-          <Title />
-        </Suspense>
+        <Title />
       </header>
-      <Suspense fallback={<p className="text-2xl text-white">Loading your mixtapes…</p>}>
-        <Playlists />
-      </Suspense>
-      <form action="/api/auth/logout" method="post">
-        <button className="text-xl text-white/80 underline">Log out</button>
+      <Playlists />
+      <form action="/api/auth/logout" method="post" className="mt-10">
+        <button aria-label="Log out" className="transition-transform duration-200 hover:scale-110 active:scale-95">
+          <CutoutTitle text="Log out" as="span" oneLine level letterHover={false} maxHeight="1.75rem" minHeight="1.5rem" />
+        </button>
       </form>
     </div>
   );
