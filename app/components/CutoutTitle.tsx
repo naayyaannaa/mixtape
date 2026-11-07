@@ -69,7 +69,7 @@ export default function CutoutTitle({
   as?: "h1" | "p" | "span";
   /** Letters hop one after another, on a loop (the loading screen). */
   jump?: boolean;
-  /** Never wrap words onto a new line (short labels like "Log out"). */
+  /** Never wrap words onto a new line (short labels like "Logout"). */
   oneLine?: boolean;
   /** Each letter grows on hover; off when the whole thing moves instead. */
   letterHover?: boolean;
