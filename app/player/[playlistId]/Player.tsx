@@ -37,6 +37,7 @@ export default function Player({
 }) {
   const playback = usePlayback();
   const { now, paused, time, message, open, session } = playback;
+  const noPremium = message === PREMIUM_MESSAGE;
 
   // Props from the server are new objects on every render; compare by value.
   const startKey = requestedStart && JSON.stringify(requestedStart);
@@ -157,7 +158,8 @@ export default function Player({
       </header>
 
       <main className="flex flex-1 flex-col items-center justify-center gap-6">
-        <Disc cover={now.cover} spinning={!paused} scribble={message === PREMIUM_MESSAGE ? "sorry :(" : undefined} />
+        {/* No Premium: nothing can play, but the disc keeps spinning with its note. */}
+        <Disc cover={now.cover} spinning={!paused || noPremium} scribble={noPremium ? "sorry :(" : undefined} />
 
         <div className="flex flex-col items-center text-center">
           <h1 className="text-4xl leading-tight sm:text-5xl">{now.name}</h1>
