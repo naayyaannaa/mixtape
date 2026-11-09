@@ -27,16 +27,16 @@ function GuestStar() {
     >
       <svg viewBox="0 0 100 100" aria-hidden className="size-full overflow-visible">
         <defs>
-          {/* Holographic chrome: silver with pastel rainbow bands, slowly turning. */}
+          {/* Holographic chrome: muted silver with soft rainbow bands, slowly turning. */}
           <linearGradient id="guest-holo" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#f5f5f5" />
-            <stop offset="0.18" stopColor="#ff9ad5" />
-            <stop offset="0.34" stopColor="#c8b6ff" />
-            <stop offset="0.5" stopColor="#9be8ff" />
-            <stop offset="0.62" stopColor="#ffffff" />
-            <stop offset="0.76" stopColor="#b8ffd9" />
-            <stop offset="0.88" stopColor="#fff3a0" />
-            <stop offset="1" stopColor="#a9b4c2" />
+            <stop offset="0" stopColor="#b9c0c9" />
+            <stop offset="0.18" stopColor="#c98aae" />
+            <stop offset="0.34" stopColor="#a497c9" />
+            <stop offset="0.5" stopColor="#86b8c9" />
+            <stop offset="0.62" stopColor="#cfd4da" />
+            <stop offset="0.76" stopColor="#93c4aa" />
+            <stop offset="0.88" stopColor="#c9c08a" />
+            <stop offset="1" stopColor="#7d8794" />
             <animateTransform
               attributeName="gradientTransform"
               type="rotate"

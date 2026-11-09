@@ -187,13 +187,14 @@ export default function Player({
         </div>
       </main>
 
-      {/* Pop-out (picture-in-picture) window: the same old-Windows player as the
-          mini player, minus its title bar (the browser's own bar already has a close). */}
+      {/* Pop-out (picture-in-picture) window: the same old-Windows player as the mini player. */}
       {pip.pipWindow &&
         createPortal(
           <RetroWindow
             now={now}
             {...controls}
+            onClose={() => pip.pipWindow?.close()}
+            closeLabel="Close pop-out player"
             className="h-screen w-screen"
             discClassName="w-[min(58vw,40vh)]"
           />,
