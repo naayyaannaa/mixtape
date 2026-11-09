@@ -28,25 +28,18 @@ function GuestStar() {
       <svg viewBox="0 0 100 100" aria-hidden className="size-full overflow-visible">
         <defs>
           {/* Dark chrome: gunmetal with sharp bright glints and just a hint of
-              colour in the reflections, slowly turning so the shine moves. */}
+              colour in the reflections. */}
           <linearGradient id="guest-holo" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#2a2f36" />
+            <stop offset="0" stopColor="#4a515a" />
             <stop offset="0.14" stopColor="#5b636d" />
             <stop offset="0.22" stopColor="#e8ecf0" />
             <stop offset="0.28" stopColor="#4a525c" />
-            <stop offset="0.45" stopColor="#1c2026" />
+            <stop offset="0.45" stopColor="#434a53" />
             <stop offset="0.58" stopColor="#6d6a82" />
             <stop offset="0.66" stopColor="#f4f6f8" />
             <stop offset="0.72" stopColor="#5a7078" />
-            <stop offset="0.86" stopColor="#262a30" />
+            <stop offset="0.86" stopColor="#474e57" />
             <stop offset="1" stopColor="#8a929c" />
-            <animateTransform
-              attributeName="gradientTransform"
-              type="rotate"
-              values="0 0.5 0.5; 360 0.5 0.5"
-              dur="8s"
-              repeatCount="indefinite"
-            />
           </linearGradient>
           {/* Same inner shadow as the login star. */}
           <filter id="guest-star-inset" x="-10%" y="-10%" width="120%" height="120%">
