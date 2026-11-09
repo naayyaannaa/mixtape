@@ -16,6 +16,7 @@ import ProgressBar from "./ProgressBar";
 import { usePictureInPicture } from "./usePictureInPicture";
 import { useIdle } from "./useIdle";
 import type { PlaylistTrack } from "@/lib/playlist";
+import { rememberOpened } from "@/lib/recent";
 
 /** Hide everything but the disc and background after this long without mouse movement. */
 const IDLE_MS = 30_000;
@@ -44,6 +45,9 @@ export default function Player({
   useEffect(() => {
     open(playlistId, tracks, startKey ? (JSON.parse(startKey) as Start) : null);
   }, [open, playlistId, tracks, startKey]);
+
+  // For the collection's "recently opened" order.
+  useEffect(() => rememberOpened(playlistId), [playlistId]);
 
   // Keep the address on the song that's playing (next/previous, end of a song…),
   // so a refresh carries on from it. replaceState: no navigation, no reload.
@@ -183,14 +187,13 @@ export default function Player({
         </div>
       </main>
 
-      {/* Pop-out (picture-in-picture) window: the same old-Windows player as the mini player. */}
+      {/* Pop-out (picture-in-picture) window: the same old-Windows player as the
+          mini player, minus its title bar (the browser's own bar already has a close). */}
       {pip.pipWindow &&
         createPortal(
           <RetroWindow
             now={now}
             {...controls}
-            onClose={() => pip.pipWindow?.close()}
-            closeLabel="Close pop-out player"
             className="h-screen w-screen"
             discClassName="w-[min(58vw,40vh)]"
           />,

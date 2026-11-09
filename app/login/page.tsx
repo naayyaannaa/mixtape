@@ -1,6 +1,7 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import CutoutTitle from "../components/CutoutTitle";
-import StarField, { STAR } from "../components/StarField";
+import StarField, { BG_STARS, GUEST_STAR, STAR } from "../components/StarField";
 
 // ?error= values the auth callback can send back.
 const ERRORS: Record<string, string> = {
@@ -8,6 +9,69 @@ const ERRORS: Record<string, string> = {
   state_mismatch: "That login link expired. Please try again.",
   token_exchange_failed: "Spotify didn't finish the login. Please try again.",
 };
+
+/**
+ * The small star on the left of the background, made into a link to the
+ * visualizer (no login needed). Looks like the other background stars except
+ * for a chrome / holographic outline, and the login star's inner shadow on hover.
+ */
+function GuestStar() {
+  const s = BG_STARS[GUEST_STAR];
+  return (
+    // The link ignores the pointer so only the star shape is clickable (as on the login star).
+    <Link
+      href="/visualizer"
+      aria-label="Try the visualizer without logging in"
+      className="group pointer-events-none fixed outline-none"
+      style={{ left: s.left, top: s.top, width: s.size, height: s.size, rotate: `${s.rotate}deg` }}
+    >
+      <svg viewBox="0 0 100 100" aria-hidden className="size-full overflow-visible">
+        <defs>
+          {/* Holographic chrome: silver with pastel rainbow bands, slowly turning. */}
+          <linearGradient id="guest-holo" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#f5f5f5" />
+            <stop offset="0.18" stopColor="#ff9ad5" />
+            <stop offset="0.34" stopColor="#c8b6ff" />
+            <stop offset="0.5" stopColor="#9be8ff" />
+            <stop offset="0.62" stopColor="#ffffff" />
+            <stop offset="0.76" stopColor="#b8ffd9" />
+            <stop offset="0.88" stopColor="#fff3a0" />
+            <stop offset="1" stopColor="#a9b4c2" />
+            <animateTransform
+              attributeName="gradientTransform"
+              type="rotate"
+              values="0 0.5 0.5; 360 0.5 0.5"
+              dur="8s"
+              repeatCount="indefinite"
+            />
+          </linearGradient>
+          {/* Same inner shadow as the login star. */}
+          <filter id="guest-star-inset" x="-10%" y="-10%" width="120%" height="120%">
+            <feFlood floodColor="#000" floodOpacity="1" />
+            <feComposite in2="SourceAlpha" operator="out" />
+            <feOffset dx="3" dy="3" />
+            <feGaussianBlur stdDeviation="3" />
+            <feComposite in2="SourceAlpha" operator="in" />
+          </filter>
+        </defs>
+        <polygon
+          points={STAR}
+          className="pointer-events-auto cursor-pointer"
+          fill="#3b4b5c"
+          stroke="url(#guest-holo)"
+          strokeWidth={2.5}
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+        />
+        <polygon
+          points={STAR}
+          filter="url(#guest-star-inset)"
+          className="opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
+        />
+      </svg>
+    </Link>
+  );
+}
 
 async function LoginError({ searchParams }: { searchParams: PageProps<"/login">["searchParams"] }) {
   const { error } = await searchParams;
@@ -26,7 +90,8 @@ export default function LoginPage(props: PageProps<"/login">) {
         backgroundBlendMode: "soft-light",
       }}
     >
-      <StarField />
+      <StarField skip={GUEST_STAR} />
+      <GuestStar />
 
       <header className="w-full px-4 pt-14 sm:pt-22">
         <CutoutTitle text={"Welcome to ur\nmixtape collection"} />

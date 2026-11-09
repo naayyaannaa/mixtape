@@ -32,8 +32,9 @@ export default function RetroWindow({
   onPrevious: () => void;
   onPlayPause: () => void;
   onNext: () => void;
-  onClose: () => void;
-  closeLabel: string;
+  /** Without onClose there's no title bar (the pop-out window has the browser's own). */
+  onClose?: () => void;
+  closeLabel?: string;
   /** Where clicking the disc / song goes (the full player); omit for no link. */
   href?: string;
   className?: string;
@@ -64,23 +65,32 @@ export default function RetroWindow({
       className={`retro-frame flex flex-col p-[3px] text-white ${className}`}
       style={{ "--retro-face": accent.color, "--retro-ink": accent.text, ...style } as React.CSSProperties}
     >
-      <div
-        {...titleBarProps}
-        className={`flex h-7 shrink-0 items-center justify-between gap-2 bg-(--retro-face) pl-2 pr-[3px] text-(--retro-ink) transition-colors duration-1000 ${titleBarProps?.className ?? ""}`}
-      >
-        <span className="truncate text-lg leading-none">Mixtape</span>
-        <button
-          onClick={onClose}
-          aria-label={closeLabel}
-          className="retro-raised flex h-[20px] w-[22px] shrink-0 items-center justify-center"
+      {onClose && (
+        <div
+          {...titleBarProps}
+          className={`flex h-7 shrink-0 items-center justify-between gap-2 bg-(--retro-face) pl-2 pr-[3px] text-(--retro-ink) transition-colors duration-1000 ${titleBarProps?.className ?? ""}`}
         >
-          <PixelIcon name="close" size={8} />
-        </button>
-      </div>
+          <span className="truncate text-lg leading-none">Mixtape</span>
+          <button
+            onClick={onClose}
+            aria-label={closeLabel}
+            className="retro-raised flex h-[20px] w-[22px] shrink-0 items-center justify-center"
+          >
+            <PixelIcon name="close" size={8} />
+          </button>
+        </div>
+      )}
 
       {/* Sunken body showing the song's colours, like a window's content area. */}
-      <div className="retro-sunken relative isolate mt-[3px] flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-hidden p-3">
-        <MeshBackground colors={palette.colors} noise={look.noise} brightness={look.brightness} className="absolute inset-0" />
+      <div
+        className={`retro-sunken relative isolate flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-hidden p-3 ${onClose ? "mt-[3px]" : ""}`}
+      >
+        <MeshBackground
+          colors={palette.colors}
+          noise={look.noise}
+          brightness={look.brightness}
+          className="absolute inset-0"
+        />
         {href ? (
           <Link href={href} aria-label="Open player" className="shrink-0">
             {disc}

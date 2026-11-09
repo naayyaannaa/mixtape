@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { cookies } from "next/headers";
 import Link from "next/link";
 import CutoutTitle from "../components/CutoutTitle";
 import CdCase from "../components/CdCase";
@@ -6,6 +7,7 @@ import Loading from "../components/Loading";
 import StarField from "../components/StarField";
 import { loadCollection } from "@/lib/session";
 import type { SimplifiedPlaylist } from "@/lib/spotify";
+import { RECENT_COOKIE, parseRecent, sortByRecent } from "@/lib/recent";
 
 /** Only names made of letters/digits we have cutouts for; anything else falls back. */
 const cutoutable = (name: string) =>
@@ -39,7 +41,11 @@ async function Playlists() {
             : `Spotify didn't answer properly (error ${result.status}). Try again in a minute.`;
     return <p className="max-w-xl text-center text-2xl text-black">{text}</p>;
   }
-  const { me, playlists } = result;
+  const { me } = result;
+  // Most recently opened first (remembered in a cookie by the track list and
+  // player); playlists never opened follow in Spotify's order.
+  const recent = parseRecent((await cookies()).get(RECENT_COOKIE)?.value);
+  const playlists = sortByRecent(result.playlists, recent);
   // Spotify's Development Mode only lets apps read the track list of playlists the
   // user owns or collaborates on. Others (followed playlists) can still be *played*,
   // so they skip the tracklist and go straight to the player.
