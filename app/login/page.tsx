@@ -27,16 +27,19 @@ function GuestStar() {
     >
       <svg viewBox="0 0 100 100" aria-hidden className="size-full overflow-visible">
         <defs>
-          {/* Holographic chrome: muted silver with soft rainbow bands, slowly turning. */}
+          {/* Dark chrome: gunmetal with sharp bright glints and just a hint of
+              colour in the reflections, slowly turning so the shine moves. */}
           <linearGradient id="guest-holo" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#b9c0c9" />
-            <stop offset="0.18" stopColor="#c98aae" />
-            <stop offset="0.34" stopColor="#a497c9" />
-            <stop offset="0.5" stopColor="#86b8c9" />
-            <stop offset="0.62" stopColor="#cfd4da" />
-            <stop offset="0.76" stopColor="#93c4aa" />
-            <stop offset="0.88" stopColor="#c9c08a" />
-            <stop offset="1" stopColor="#7d8794" />
+            <stop offset="0" stopColor="#2a2f36" />
+            <stop offset="0.14" stopColor="#5b636d" />
+            <stop offset="0.22" stopColor="#e8ecf0" />
+            <stop offset="0.28" stopColor="#4a525c" />
+            <stop offset="0.45" stopColor="#1c2026" />
+            <stop offset="0.58" stopColor="#6d6a82" />
+            <stop offset="0.66" stopColor="#f4f6f8" />
+            <stop offset="0.72" stopColor="#5a7078" />
+            <stop offset="0.86" stopColor="#262a30" />
+            <stop offset="1" stopColor="#8a929c" />
             <animateTransform
               attributeName="gradientTransform"
               type="rotate"
