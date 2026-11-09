@@ -27,19 +27,19 @@ function GuestStar() {
     >
       <svg viewBox="0 0 100 100" aria-hidden className="size-full overflow-visible">
         <defs>
-          {/* Dark chrome: gunmetal with sharp bright glints and just a hint of
-              colour in the reflections. */}
+          {/* Dark chrome: soft, wide highlights fading into gunmetal bands (like
+              brushed metal catching light), a faint cool tint in the reflections. */}
           <linearGradient id="guest-holo" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0" stopColor="#4a515a" />
-            <stop offset="0.14" stopColor="#3f454d" />
-            <stop offset="0.22" stopColor="#e8ecf0" />
-            <stop offset="0.28" stopColor="#383e46" />
-            <stop offset="0.45" stopColor="#434a53" />
-            <stop offset="0.58" stopColor="#6d6a82" />
-            <stop offset="0.66" stopColor="#f4f6f8" />
+            <stop offset="0.1" stopColor="#6b737d" />
+            <stop offset="0.2" stopColor="#a9b0b8" />
+            <stop offset="0.3" stopColor="#5d646d" />
+            <stop offset="0.42" stopColor="#3f454d" />
+            <stop offset="0.52" stopColor="#6d6a82" />
+            <stop offset="0.62" stopColor="#b8bec5" />
             <stop offset="0.72" stopColor="#5a7078" />
             <stop offset="0.86" stopColor="#474e57" />
-            <stop offset="1" stopColor="#6b737d" />
+            <stop offset="1" stopColor="#7d858f" />
           </linearGradient>
           {/* Same inner shadow as the login star. */}
           <filter id="guest-star-inset" x="-10%" y="-10%" width="120%" height="120%">
